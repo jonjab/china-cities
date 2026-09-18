@@ -1,0 +1,8 @@
+Jinan (Tsinan) - David Rumsey Map Collection - Shantung. Stanford's Geographical Establishment (1908) - https://www.davidrumsey.com/luna/servlet/iiif/m/RUMSEY~8~1~291050~90062603/manifest
+Jinan (Tsinan) - David Rumsey Map Collection - 2. Shantung, China (1917) - Far Eastern Geographical Establishment / Edwin John Dingle - https://www.davidrumsey.com/luna/servlet/iiif/m/RUMSEY~8~1~288144~90059552/manifest
+Jinan (Tsinan) - David Rumsey Map Collection - Philips' Commercial Map of China (1926) - George Philip & Alexander Hosie (Includes Peking-Tsinan District Inset) - https://www.davidrumsey.com/luna/servlet/iiif/m/RUMSEY~8~1~350061~90117441/manifest
+Jinan (Tsi-nan) - David Rumsey Map Collection - Carte de L'Asie, D'apres les meilleurs materiaux (1833) - Philippe Vandermaelen (Features hand-drawn routes between Tsi-Nan / Jinan and Kiao-Tcheon) - https://www.davidrumsey.com/luna/servlet/iiif/m/RUMSEY~8~1~383175~90149066/manifest
+Jinan (Tsinan) - Digital Commonwealth - Zhongguo di zhi tu = General geological map of China : Peking-Tsinan Sheet (1924) - https://www.digitalcommonwealth.org/search/commonwealth:3f4638258/manifest
+
+# Search of Remaining Collections (30. KU Leuven to 70. Yale University Library):
+# Thorough search performed across remaining collections on the IIIF Guides list; no additional IIIF map manifests for Jinan, China were found.
