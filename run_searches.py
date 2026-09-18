@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DEFAULT_GOOGLE_SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/1XEOd_6-aHWnd0qJpzTH0oejVi2LBc8oHSLZUKv7t5TM/export?format=csv"
+    "https://docs.google.com/spreadsheets/d/1osrZXOP9br9ADsk1X8HljCJ8mergHiaEPwVHld8AprA/export?format=csv"
 )
 
 COLLECTIONS = [
@@ -87,11 +87,8 @@ CITY_ALIASES = {
 def fetch_cities_from_google(url=DEFAULT_GOOGLE_SHEET_URL, local_fallback=None):
     """Fetches the city list dynamically from Google Sheets CSV export URL.
 
-    Falls back to a local CSV file if network is unavailable.
+    Falls back to a local CSV file or CITY_ALIASES keys if network is unavailable.
     """
-    if local_fallback is None:
-        local_fallback = os.path.join(BASE_DIR, "iiif maps.csv")
-
     cities = []
     # 1. Fetch from Google Sheets
     try:
@@ -113,10 +110,10 @@ def fetch_cities_from_google(url=DEFAULT_GOOGLE_SHEET_URL, local_fallback=None):
                 print(f"Successfully loaded {len(cities)} cities from Google Sheets.")
                 return cities
     except Exception as e:
-        print(f"Warning: Could not fetch from Google Sheets ({e}). Falling back to local file.")
+        print(f"Warning: Could not fetch from Google Sheets ({e}). Falling back.")
 
-    # 2. Fallback to local file
-    if os.path.exists(local_fallback):
+    # 2. Fallback to local file if provided
+    if local_fallback and os.path.exists(local_fallback):
         with open(local_fallback, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             for row in reader:
@@ -128,32 +125,16 @@ def fetch_cities_from_google(url=DEFAULT_GOOGLE_SHEET_URL, local_fallback=None):
                 if city not in cities:
                     cities.append(city)
         print(f"Loaded {len(cities)} cities from local fallback {local_fallback}.")
-    return cities
+        return cities
+
+    # 3. Fallback to known city aliases
+    print(f"Loaded {len(CITY_ALIASES)} cities from default city list.")
+    return list(CITY_ALIASES.keys())
 
 
 def get_city_queries(city):
     """Returns search query keywords for a city (using aliases if available)."""
     return CITY_ALIASES.get(city, [city.lower()])
-
-
-def load_existing_iiif_maps(file_path):
-    """Loads existing annotations/endpoints from iiif maps.csv to preserve manual entries."""
-    existing = {}  # city -> list of (notes, endpoint)
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-            for row in reader:
-                if not row:
-                    continue
-                c = row[0].strip()
-                notes = row[1].strip() if len(row) > 1 else ""
-                ep = row[2].strip() if len(row) > 2 else ""
-                if c not in existing:
-                    existing[c] = []
-                if ep:
-                    existing[c].append((notes, ep))
-    return existing
 
 
 def run_single_search(coll, q):
@@ -191,54 +172,11 @@ def run_single_search(coll, q):
     return []
 
 
-def write_outputs(cities, processed_city_maps, existing_maps):
-    """Writes results to iiif maps.csv, iiif_endpoints.csv, and maps.txt."""
-    # 1. Write to iiif maps.csv (and sync iiif maps - Sheet1.csv)
-    # Target columns: city, notes, endpoint
-    maps_csv_path = os.path.join(BASE_DIR, "iiif maps.csv")
-    sheet1_csv_path = os.path.join(BASE_DIR, "iiif maps - Sheet1.csv")
-
+def write_outputs(cities, processed_city_maps):
+    """Writes results to iiif_endpoints.csv and maps.txt."""
     all_cities_ordered = list(cities)
-    for c in existing_maps.keys():
-        if c not in all_cities_ordered:
-            all_cities_ordered.append(c)
 
-    rows_to_write = [["city", "notes", "endpoint"]]
-
-    for city in all_cities_ordered:
-        city_endpoints = []
-        seen_endpoints = set()
-
-        # Add existing manual endpoints (e.g. annotations.allmaps.org)
-        if city in existing_maps:
-            for notes, ep in existing_maps[city]:
-                if ep and ep not in seen_endpoints:
-                    seen_endpoints.add(ep)
-                    city_endpoints.append((notes, ep))
-
-        # Add newly found IIIF manifests
-        maps_found = processed_city_maps.get(city, [])
-        for m in maps_found:
-            manifest = m["manifest"]
-            if manifest and manifest not in seen_endpoints:
-                seen_endpoints.add(manifest)
-                notes = f"{m['title']} ({m['collection']})"
-                city_endpoints.append((notes, manifest))
-
-        if city_endpoints:
-            for notes, ep in city_endpoints:
-                rows_to_write.append([city, notes, ep])
-        else:
-            # Empty row placeholder for the city
-            rows_to_write.append([city, "", ""])
-
-    for path in (maps_csv_path, sheet1_csv_path):
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerows(rows_to_write)
-    print(f"\nWrote {len(rows_to_write) - 1} city map records to: {maps_csv_path}")
-
-    # 2. Write to iiif_endpoints.csv
+    # 1. Write to iiif_endpoints.csv
     csv_path = os.path.join(BASE_DIR, "iiif_endpoints.csv")
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -248,9 +186,9 @@ def write_outputs(cities, processed_city_maps, existing_maps):
             for m in maps:
                 if m.get("manifest"):
                     writer.writerow([city, m["collection"], m["title"], m["manifest"]])
-    print(f"Wrote all IIIF manifest URLs to: {csv_path}")
+    print(f"\nWrote all IIIF manifest URLs to: {csv_path}")
 
-    # 3. Write narrative results to maps.txt
+    # 2. Write narrative results to maps.txt
     txt_path = os.path.join(BASE_DIR, "maps.txt")
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("================================================================================\n")
@@ -283,9 +221,6 @@ def run(sheet_url=DEFAULT_GOOGLE_SHEET_URL, local_file=None, max_workers=24):
     if not cities:
         print("Error: No cities found to search.")
         return
-
-    maps_csv_path = os.path.join(BASE_DIR, "iiif maps.csv")
-    existing_maps = load_existing_iiif_maps(maps_csv_path)
 
     print(f"Starting concurrent Map Search across {len(COLLECTIONS)} API collections for {len(cities)} cities...")
 
@@ -367,7 +302,7 @@ def run(sheet_url=DEFAULT_GOOGLE_SHEET_URL, local_file=None, max_workers=24):
         total_maps_found += len(filtered_maps)
 
     # Write all outputs
-    write_outputs(cities, processed_city_maps, existing_maps)
+    write_outputs(cities, processed_city_maps)
 
     print("\n================================================================================")
     print("                      SUMMARY OF SEARCH FINDINGS")
@@ -383,10 +318,8 @@ def run(sheet_url=DEFAULT_GOOGLE_SHEET_URL, local_file=None, max_workers=24):
 
 
 def populate_from_existing():
-    """Populates iiif maps.csv directly using previously saved results in iiif_endpoints.csv."""
+    """Populates maps.txt and iiif_endpoints.csv directly using previously saved results."""
     cities = fetch_cities_from_google()
-    maps_csv_path = os.path.join(BASE_DIR, "iiif maps.csv")
-    existing_maps = load_existing_iiif_maps(maps_csv_path)
 
     # Load from iiif_endpoints.csv
     endpoints_file = os.path.join(BASE_DIR, "iiif_endpoints.csv")
@@ -411,7 +344,7 @@ def populate_from_existing():
                     }
                 )
 
-    write_outputs(cities, processed_city_maps, existing_maps)
+    write_outputs(cities, processed_city_maps)
 
 
 if __name__ == "__main__":
@@ -435,7 +368,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--populate-only",
         action="store_true",
-        help="Populate iiif maps.csv from iiif_endpoints.csv without re-running search APIs",
+        help="Rebuild maps.txt and iiif_endpoints.csv from existing iiif_endpoints.csv without re-running search APIs",
     )
 
     args = parser.parse_args()
